@@ -10,12 +10,12 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const clients = new Map();
 
-// --- Basic HTTP test ---
+// --- HTTP test ---
 app.get("/", (req, res) => res.send("WS server running"));
 
-// --- CI3 push endpoint ---
+// --- CI3 / admin panel push endpoint ---
 app.post("/push", (req, res) => {
-  const { device_code, action } = req.body;
+  const { device_code, action, message } = req.body;
 
   if (!device_code || !action) {
     return res.status(400).json({ status: "error", message: "device_code ve action gerekli" });
@@ -23,8 +23,8 @@ app.post("/push", (req, res) => {
 
   const ws = clients.get(device_code);
   if (ws && ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify({ type: "command", action }));
-    console.log(`Sent '${action}' to ${device_code}`);
+    ws.send(JSON.stringify({ type: "command", action, message }));
+    console.log(`Sent '${action}' to ${device_code} with message: ${message || ''}`);
     return res.json({ status: "success", message: "Command sent" });
   } else {
     console.log(`Device ${device_code} not connected`);
