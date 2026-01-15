@@ -13,21 +13,19 @@ const clients = new Map();
 // -------------------------------------------------
 // HTTP test
 // -------------------------------------------------
-app.get("/", (req, res) => {
-  res.send("WS server running");
-});
+app.get("/", (req, res) => res.send("WS server running"));
 
 
 // -------------------------------------------------
-// PUSH → SADECE PAIRING / BIND
+// CI3 / Admin Panel → Push Endpoint
 // -------------------------------------------------
 app.post("/push", (req, res) => {
-  const { device_code } = req.body;
+  const { device_code, action, message } = req.body;
 
-  if (!device_code) {
+  if (!device_code || !action) {
     return res.status(400).json({
       status: "error",
-      message: "device_code gerekli"
+      message: "device_code ve action gerekli"
     });
   }
 
@@ -35,60 +33,27 @@ app.post("/push", (req, res) => {
 
   if (ws && ws.readyState === WebSocket.OPEN) {
 
+    // 🔥 SADECE DÜRTÜYORUZ (İÇERİK YOK)
     ws.send(JSON.stringify({
       type: "command",
-      action: "bind"
+      action,              // bind | content_updated | content_checked
+      message: message || null
     }));
 
-    console.log(`[BIND] ${device_code}`);
+    console.log(
+      ⁠ [PUSH] ${device_code} → action=${action} ⁠
+    );
 
     return res.json({
       status: "success",
-      message: "Bind command sent"
+      message: "Command sent"
     });
 
   } else {
-    console.log(`[BIND FAIL] ${device_code} not connected`);
 
-    return res.status(404).json({
-      status: "error",
-      message: "Device not connected"
-    });
-  }
-});
-
-
-// -------------------------------------------------
-// CONTENT UPDATED → SADECE SCENE / CONTENT UPDATE
-// -------------------------------------------------
-app.post("/content_updated", (req, res) => {
-  const { device_code } = req.body;
-
-  if (!device_code) {
-    return res.status(400).json({
-      status: "error",
-      message: "device_code gerekli"
-    });
-  }
-
-  const ws = clients.get(device_code);
-
-  if (ws && ws.readyState === WebSocket.OPEN) {
-
-    ws.send(JSON.stringify({
-      type: "command",
-      action: "content_updated"
-    }));
-
-    console.log(`[CONTENT UPDATED] ${device_code}`);
-
-    return res.json({
-      status: "success",
-      message: "content_updated sent"
-    });
-
-  } else {
-    console.log(`[CONTENT UPDATE FAIL] ${device_code} not connected`);
+    console.log(
+      ⁠ [PUSH FAIL] ${device_code} not connected ⁠
+    );
 
     return res.status(404).json({
       status: "error",
@@ -101,22 +66,25 @@ app.post("/content_updated", (req, res) => {
 // -------------------------------------------------
 // WebSocket Connection
 // -------------------------------------------------
-wss.on("connection", (ws) => {
+wss.on("connection", (ws, req) => {
   console.log("Client connected");
 
   ws.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
 
-      // DEVICE REGISTER
+      // 📌 DEVICE REGISTER
       if (data.type === "register" && data.device_code) {
         ws.device_code = data.device_code;
         clients.set(data.device_code, ws);
 
         console.log("Registered:", data.device_code);
+
+        // ❗ Burada bind göndermiyoruz
+        // ❗ Bind SADECE admin panelden gelir
       }
 
-    } catch (err) {
+    } catch (e) {
       console.log("Invalid JSON:", msg);
     }
   });
@@ -137,6 +105,6 @@ wss.on("connection", (ws) => {
 // -------------------------------------------------
 // Start Server
 // -------------------------------------------------
-server.listen(PORT, () => {
-  console.log(`HTTP + WS server running on port ${PORT}`);
-});
+server.listen(PORT, () =>
+  console.log(⁠ HTTP + WS server running on port ${PORT} ⁠)
+);
