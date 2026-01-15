@@ -3,109 +3,96 @@ const WebSocket = require("ws");
 const express = require("express");
 
 const PORT = process.env.PORT || 3000;
-
 const app = express();
 app.use(express.json());
 
 const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
-
-// device_code => ws
 const clients = new Map();
 
-/* -------------------------------------------------
-   HEALTH CHECK
-------------------------------------------------- */
-app.get("/", (_, res) => {
-  res.send("WebSocket server running");
-});
+// -------------------------------------------------
+// HTTP test
+// -------------------------------------------------
+app.get("/", (req, res) => res.send("WS server running"));
 
-/* -------------------------------------------------
-   ADMIN PANEL → PUSH
-------------------------------------------------- */
+
+// -------------------------------------------------
+// CI3 / Admin Panel → Push Endpoint
+// -------------------------------------------------
 app.post("/push", (req, res) => {
-  const { device_code, action, message, broadcast } = req.body;
+  const { device_code, action, message } = req.body;
 
-  if (!action) {
+  if (!device_code || !action) {
     return res.status(400).json({
       status: "error",
-      message: "action zorunlu"
-    });
-  }
-
-  // 🔊 HERKESE GÖNDER
-  if (broadcast === true) {
-    let sent = 0;
-
-    clients.forEach((ws, code) => {
-      if (ws.readyState === WebSocket.OPEN) {
-        ws.send(JSON.stringify({
-          type: "command",
-          action,
-          message: message || null
-        }));
-        sent++;
-      }
-    });
-
-    console.log(`[BROADCAST] action=${action} → ${sent} device`);
-    return res.json({ status: "success", sent });
-  }
-
-  // 🎯 TEK CİHAZ
-  if (!device_code) {
-    return res.status(400).json({
-      status: "error",
-      message: "device_code gerekli (broadcast yoksa)"
+      message: "device_code ve action gerekli"
     });
   }
 
   const ws = clients.get(device_code);
 
-  if (!ws || ws.readyState !== WebSocket.OPEN) {
+  if (ws && ws.readyState === WebSocket.OPEN) {
+
+    // 🔥 SADECE DÜRTÜYORUZ (İÇERİK YOK)
+    ws.send(JSON.stringify({
+      type: "command",
+      action,              // bind | content_updated | content_checked
+      message: message || null
+    }));
+
+    console.log(
+      `[PUSH] ${device_code} → action=${action}`
+    );
+
+    return res.json({
+      status: "success",
+      message: "Command sent"
+    });
+
+  } else {
+
+    console.log(
+      `[PUSH FAIL] ${device_code} not connected`
+    );
+
     return res.status(404).json({
       status: "error",
       message: "Device not connected"
     });
   }
-
-  ws.send(JSON.stringify({
-    type: "command",
-    action,
-    message: message || null
-  }));
-
-  console.log(`[PUSH] ${device_code} → ${action}`);
-
-  res.json({ status: "success" });
 });
 
-/* -------------------------------------------------
-   WEBSOCKET CONNECTION
-------------------------------------------------- */
-wss.on("connection", (ws) => {
+
+// -------------------------------------------------
+// WebSocket Connection
+// -------------------------------------------------
+wss.on("connection", (ws, req) => {
   console.log("Client connected");
 
   ws.on("message", (msg) => {
     try {
       const data = JSON.parse(msg);
 
+      // 📌 DEVICE REGISTER
       if (data.type === "register" && data.device_code) {
         ws.device_code = data.device_code;
         clients.set(data.device_code, ws);
 
         console.log("Registered:", data.device_code);
+
+        // ❗ Burada bind göndermiyoruz
+        // ❗ Bind SADECE admin panelden gelir
       }
 
-    } catch (err) {
-      console.log("Invalid WS JSON");
+    } catch (e) {
+      console.log("Invalid JSON:", msg);
     }
   });
 
   ws.on("close", () => {
     if (ws.device_code) {
       clients.delete(ws.device_code);
-      console.log("Disconnected:", ws.device_code);
+      console.log("Client disconnected:", ws.device_code);
     }
   });
 
@@ -114,9 +101,10 @@ wss.on("connection", (ws) => {
   });
 });
 
-/* -------------------------------------------------
-   START
-------------------------------------------------- */
-server.listen(PORT, () => {
-  console.log(`HTTP + WS server running on ${PORT}`);
-});
+
+// -------------------------------------------------
+// Start Server
+// -------------------------------------------------
+server.listen(PORT, () =>
+  console.log(`HTTP + WS server running on port ${PORT}`)
+);
