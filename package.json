@@ -1,15 +1,15 @@
 {
-  "name": "ws.angoracreative.com",
+  "name": "websocket-app",
   "version": "1.0.0",
+  "description": "Minimal WebSocket + Express Node.js app for Render deployment",
   "main": "app.js",
   "scripts": {
     "start": "node app.js",
     "test": "echo \"Error: no test specified\" && exit 1"
   },
-  "keywords": [],
-  "author": "",
+  "keywords": ["websocket", "express", "nodejs", "render"],
+  "author": "Angora Creative",
   "license": "ISC",
-  "description": "",
   "dependencies": {
     "express": "^5.2.1",
     "mysql2": "^3.16.0",
