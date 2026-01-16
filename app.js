@@ -10,14 +10,9 @@ const server = http.createServer(app);
 const wss = new WebSocket.Server({ server });
 const clients = new Map();
 
-// -------------------------------------------------
-// HTTP test
-// -------------------------------------------------
 app.get("/", (req, res) => res.send("WS server running"));
 
-// -------------------------------------------------
-// CI3 / Admin Panel → Push Endpoint
-// -------------------------------------------------
+
 app.post("/push", (req, res) => {
   const { device_code, action, message } = req.body;
 
@@ -33,7 +28,7 @@ app.post("/push", (req, res) => {
   if (ws && ws.readyState === WebSocket.OPEN) {
     ws.send(JSON.stringify({
       type: "command",
-      action,              // bind | content_updated | content_checked
+      action,             
       message: message || null
     }));
 
@@ -53,9 +48,7 @@ app.post("/push", (req, res) => {
   }
 });
 
-// -------------------------------------------------
-// WebSocket Connection
-// -------------------------------------------------
+
 wss.on("connection", (ws, req) => {
   console.log("Client connected");
 
@@ -63,14 +56,13 @@ wss.on("connection", (ws, req) => {
     try {
       const data = JSON.parse(msg);
 
-      // 📌 DEVICE REGISTER
+
       if (data.type === "register" && data.device_code) {
         ws.device_code = data.device_code;
         clients.set(data.device_code, ws);
 
         console.log("Registered:", data.device_code);
 
-        // ❗ Opsiyonel: bağlandığında içerikleri çekmesi için Vue tarafına dürtü gönderebilirsin
         ws.send(JSON.stringify({
           type: "command",
           action: "register",
@@ -95,9 +87,6 @@ wss.on("connection", (ws, req) => {
   });
 });
 
-// -------------------------------------------------
-// Start Server
-// -------------------------------------------------
 server.listen(PORT, () =>
   console.log(`HTTP + WS server running on port ${PORT}`)
 );
